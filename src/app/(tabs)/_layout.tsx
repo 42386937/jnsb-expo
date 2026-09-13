@@ -45,6 +45,7 @@ export default function TabLayout() {
         name="homePage"
         options={{
           title: '首页',
+          headerShown: false,
           tabBarIcon: ({ color }) => (
             <Entypo size={28} name="home" color={color} />
           ),

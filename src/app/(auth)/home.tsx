@@ -1,17 +1,17 @@
-import { useState } from 'react'
+import { useRouter } from "expo-router";
+import { useState } from 'react';
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-} from 'react-native'
-
+  View
+} from 'react-native';
 const BG_IMAGE =
   'https://jnsb-1378304497.cos.ap-guangzhou.myqcloud.com/N0ByH90NituLeeedb97d4035c2f26091b2e65f4df7bd.jpg'
 
@@ -21,18 +21,26 @@ export default function Home() {
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
   const [agreed, setAgreed] = useState(false)
+  const router = useRouter()
 
   const handleLogin = () => {
-    if (!username || !password) {
-      alert('请输入账号和密码')
-      return
-    }
-    if (!agreed) {
-      alert('请先阅读并同意《隐私协议》')
-      return
-    }
+    // if (!username || !password) {
+    //   alert('请输入账号和密码')
+    //   return
+    // }
+    // if (!agreed) {
+    //   alert('请先阅读并同意《隐私协议》')
+    //   return
+    // }
     // TODO: 调用登录接口
-    console.log('login', { username, password })
+    Alert.alert("提示", "登录成功", [
+      {
+        text: "确定",
+        onPress: () => {
+          router.push("/(tabs)/homePage");
+        },
+      },
+    ]);
   }
 
   const handlePhoneLogin = () => {
@@ -42,7 +50,7 @@ export default function Home() {
 
   return (
     <View style={styles.safe}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      {/* <StatusBar barStyle="light-content" translucent backgroundColor="transparent" /> */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -158,7 +166,7 @@ const styles = StyleSheet.create({
   },
   // 顶部背景
   header: {
-    height: 320,
+    height: 250,
     position: 'relative',
     justifyContent: 'flex-end',
   },
@@ -177,13 +185,13 @@ const styles = StyleSheet.create({
   },
   appName: {
     color: '#fff',
-    fontSize: 30,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   hello: {
     color: '#fff',
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 8,
   },
