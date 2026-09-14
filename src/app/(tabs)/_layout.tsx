@@ -1,7 +1,5 @@
-import Entypo from '@expo/vector-icons/Entypo';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Image } from 'react-native';
 
 export default function TabLayout() {
   return (
@@ -17,28 +15,6 @@ export default function TabLayout() {
         headerTitleStyle: {
           fontSize: 16,
         },
-        tabBarButton: (props) => {
-          const {
-            onPress,
-            onLongPress,
-            accessibilityState,
-            style,
-          } = props;
-          return (
-            <Pressable
-              onPress={onPress}
-              onLongPress={onLongPress}
-              accessibilityState={accessibilityState}
-              style={({ pressed }) => [
-                style,
-                {
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
-              android_ripple={null}
-            />
-          );
-        },
       }}
     >
       <Tabs.Screen
@@ -46,17 +22,40 @@ export default function TabLayout() {
         options={{
           title: '首页',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <Entypo size={28} name="home" color={color} />
+          tabBarIcon: ({ focused, size }) => (
+            <Image
+              source={
+                focused
+                  ? require('../../../assets/images/tabIcons/shuSel.png')
+                  : require('../../../assets/images/tabIcons/shu.png')
+              }
+              style={{
+                width: size,
+                height: size,
+              }}
+              resizeMode="contain"
+            />
           ),
         }}
       />
+
       <Tabs.Screen
         name="mine"
         options={{
           title: '我的',
-          tabBarIcon: ({ color }) => (
-            <FontAwesome size={28} name="user" color={color} />
+          tabBarIcon: ({ focused, size }) => (
+            <Image
+              source={
+                focused
+                  ? require('../../../assets/images/tabIcons/guanliSel.png')
+                  : require('../../../assets/images/tabIcons/guanli.png')
+              }
+              style={{
+                width: size,
+                height: size,
+              }}
+              resizeMode="contain"
+            />
           ),
         }}
       />

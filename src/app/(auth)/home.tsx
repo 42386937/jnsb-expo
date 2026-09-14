@@ -1,7 +1,6 @@
 import { useRouter } from "expo-router";
 import { useState } from 'react';
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -12,6 +11,20 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+
+// Gluestack UI 组件
+import {
+  AlertDialog,
+  AlertDialogBackdrop,
+  AlertDialogBody,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+} from '@/components/ui/alert-dialog';
+import { Button, ButtonText } from '@/components/ui/button';
+import { Heading } from '@/components/ui/heading';
+import { Text as GluestackText } from '@/components/ui/text';
+
 const BG_IMAGE =
   'https://jnsb-1378304497.cos.ap-guangzhou.myqcloud.com/N0ByH90NituLeeedb97d4035c2f26091b2e65f4df7bd.jpg'
 
@@ -21,26 +34,31 @@ export default function Home() {
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
   const [agreed, setAgreed] = useState(false)
+
+  // 弹窗状态：success / error / null
+  const [dialogType, setDialogType] = useState<'success' | 'error' | null>(null)
+  const [dialogMessage, setDialogMessage] = useState('')
+
   const router = useRouter()
 
   const handleLogin = () => {
+    // 1. 校验：空值
     // if (!username || !password) {
-    //   alert('请输入账号和密码')
+    //   setDialogType('error')
+    //   setDialogMessage('请输入账号和密码')
     //   return
     // }
+
+    // // 2. 校验：隐私协议
     // if (!agreed) {
-    //   alert('请先阅读并同意《隐私协议》')
+    //   setDialogType('error')
+    //   setDialogMessage('请先阅读并同意《隐私协议》')
     //   return
     // }
-    // TODO: 调用登录接口
-    Alert.alert("提示", "登录成功", [
-      {
-        text: "确定",
-        onPress: () => {
-          router.push("/(tabs)/homePage");
-        },
-      },
-    ]);
+
+    // 3. 校验通过，弹成功提示
+    setDialogType('success')
+    setDialogMessage(`欢迎回来，${username}！`)
   }
 
   const handlePhoneLogin = () => {
@@ -48,9 +66,18 @@ export default function Home() {
     console.log('phone login')
   }
 
+  const handleClose = () => {
+    const isSuccess = dialogType === 'success'
+    setDialogType(null)
+
+    // 成功时，关闭弹窗后再跳转
+    if (isSuccess) {
+      router.push("/(tabs)/homePage")
+    }
+  }
+
   return (
     <View style={styles.safe}>
-      {/* <StatusBar barStyle="light-content" translucent backgroundColor="transparent" /> */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -155,6 +182,30 @@ export default function Home() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* 统一弹窗：成功 / 错误都用它 */}
+      <AlertDialog isOpen={dialogType !== null} onClose={handleClose}>
+        <AlertDialogBackdrop />
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <Heading className="text-foreground font-semibold text-lg">
+              {dialogType === 'success' ? '登录成功' : '提示'}
+            </Heading>
+          </AlertDialogHeader>
+
+          <AlertDialogBody className="mt-3 mb-4">
+            <GluestackText className="text-sm text-muted-foreground">
+              {dialogMessage}
+            </GluestackText>
+          </AlertDialogBody>
+
+          <AlertDialogFooter>
+            <Button onPress={handleClose}>
+              <ButtonText>确定</ButtonText>
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </View>
   )
 }
@@ -164,9 +215,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  // 顶部背景
   header: {
-    height: 250,
+    height: 300,
     position: 'relative',
     justifyContent: 'flex-end',
   },
@@ -199,7 +249,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
   },
-  // 卡片
   card: {
     flex: 1,
     backgroundColor: '#fff',
@@ -210,7 +259,6 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 40,
   },
-  // Tab
   tabs: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -235,7 +283,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#1E88FF',
   },
-  // 输入框
   form: {
     marginBottom: 40,
   },
@@ -260,7 +307,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#666',
   },
-  // 按钮
   primaryBtn: {
     height: 50,
     borderRadius: 25,
@@ -268,11 +314,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    // 渐变色可用 react-native-linear-gradient，这里用纯色兜底
-    shadowColor: '#1E88FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    boxShadow: '0px 4px 8px rgba(30, 136, 255, 0.3)',
     elevation: 3,
   },
   primaryBtnText: {
@@ -280,7 +322,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  // 协议
   agreeRow: {
     flexDirection: 'row',
     justifyContent: 'center',
