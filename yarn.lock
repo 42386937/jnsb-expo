@@ -2985,7 +2985,7 @@ expo-web-browser@~57.0.2:
   resolved "https://registry.npmmirror.com/expo-web-browser/-/expo-web-browser-57.0.3.tgz#adc332852ef29546de2fa47ba33ce4df9137f98e"
   integrity sha512-+ecvhyS/PdWkpv4ai6FF1Trd6Y/4kn/eQ3O86mie2ecU3w+I8bKZh13kppY/jw1uSL7yikt03L5W/iiHojrFwQ==
 
-expo@~57.0.20:
+expo@~57.0.22:
   version "57.0.22"
   resolved "https://registry.npmmirror.com/expo/-/expo-57.0.22.tgz#04b7a6b87f62e56803719a2ef71aae96aec8b770"
   integrity sha512-YWUGqWtchsRQzcbU+Iqqt/1kFbZ9Pp3/eg+UenINahNt2RIaDElFJFFWLD1Yfex6WnBm6ESSE8h0/ja28hRqZg==

@@ -43,6 +43,7 @@ export default function TabLayout() {
         name="mine"
         options={{
           title: '我的',
+          headerShown: false,
           tabBarIcon: ({ focused, size }) => (
             <Image
               source={
