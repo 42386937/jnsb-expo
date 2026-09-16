@@ -1,6 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Image } from 'react-native';
-
+import { Image, } from 'react-native';
 export default function TabLayout() {
   return (
     <Tabs

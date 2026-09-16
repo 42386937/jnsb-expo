@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -9,7 +10,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 
 // Gluestack UI 组件
@@ -24,7 +25,11 @@ import {
 import { Button, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
 import { Text as GluestackText } from '@/components/ui/text';
-
+import { supabase } from '@/lib/supabase';
+import { FontAwesome } from '@expo/vector-icons';
+import AntDesign from '@expo/vector-icons/AntDesign';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
 const BG_IMAGE =
   'https://jnsb-1378304497.cos.ap-guangzhou.myqcloud.com/N0ByH90NituLeeedb97d4035c2f26091b2e65f4df7bd.jpg'
 
@@ -34,7 +39,7 @@ export default function Home() {
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
   const [agreed, setAgreed] = useState(false)
-
+  const [loading, setLoading] = useState(false)
   // 弹窗状态：success / error / null
   const [dialogType, setDialogType] = useState<'success' | 'error' | null>(null)
   const [dialogMessage, setDialogMessage] = useState('')
@@ -60,11 +65,10 @@ export default function Home() {
     setDialogType('success')
     setDialogMessage(`欢迎回来，${username}！`)
   }
+  const handleGoogleLogin=async ()=>{
 
-  const handlePhoneLogin = () => {
-    // TODO: 手机号一键登录
-    console.log('phone login')
   }
+
 
   const handleClose = () => {
     const isSuccess = dialogType === 'success'
@@ -73,6 +77,68 @@ export default function Home() {
     // 成功时，关闭弹窗后再跳转
     if (isSuccess) {
       router.push("/(tabs)/homePage")
+    }
+  }
+  // ========== GitHub 登录 ==========
+  const handleGithubLogin = async () => {
+    // 校验：隐私协议
+    if (!agreed) {
+      setDialogType('error')
+      setDialogMessage('请先阅读并同意《隐私协议》')
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      // 生成重定向地址（scheme 要和 app.json 里配置的一致）
+      const redirectTo = AuthSession.makeRedirectUri({
+        scheme: 'jnsbexpo',
+        path: 'auth/callback',
+      })
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      })
+
+      if (error) throw error
+
+      // 打开浏览器完成 GitHub 授权
+      const res = await WebBrowser.openAuthSessionAsync(
+        data?.url ?? '',
+        redirectTo
+      )
+
+      if (res.type === 'success') {
+        const { url } = res
+
+        // 从回调 URL 中解析 code
+        const params = new URL(url).searchParams
+        const code = params.get('code')
+
+        if (code) {
+          const { data: sessionData, error: sessionError } =
+            await supabase.auth.exchangeCodeForSession(code)
+
+          if (sessionError) throw sessionError
+
+          // 登录成功 → 弹窗提示，关闭弹窗后 handleClose 会跳转
+          setDialogType('success')
+          setDialogMessage(
+            `欢迎回来，${sessionData.user?.user_metadata?.user_name || 'GitHub 用户'
+            }！`
+          )
+        }
+      }
+    } catch (e: any) {
+      setDialogType('error')
+      setDialogMessage(e.message || 'GitHub 登录失败，请重试')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -162,9 +228,36 @@ export default function Home() {
               <Text style={styles.primaryBtnText}>账号密码登录</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.primaryBtn} onPress={handlePhoneLogin}>
-              <Text style={styles.primaryBtnText}>手机号一键登录</Text>
+            <TouchableOpacity style={styles.primaryBtn} onPress={handleLogin}>
+              <Text style={styles.primaryBtnText}>账号密码登录</Text>
             </TouchableOpacity>
+
+            {/* GitHub */}
+            <TouchableOpacity
+              style={styles.socialBtn}
+              onPress={handleGithubLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#1F2937" />
+              ) : (
+                <>
+                  <FontAwesome size={22} name="github" color="#1F2937" />
+                  <Text style={styles.socialBtnText}>Continue with GitHub</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Google（示例，若暂时没写逻辑可先注释） */}
+            <TouchableOpacity
+              style={styles.socialBtn}
+              onPress={handleGoogleLogin}
+              disabled={loading}
+            >
+              <AntDesign size={22} name="google" color="#1F2937" />
+              <Text style={styles.socialBtnText}>Continue with Google</Text>
+            </TouchableOpacity>
+
 
             {/* 底部协议 */}
             <View style={styles.agreeRow}>
@@ -228,6 +321,23 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
+  },
+  socialBtn: {
+    height: 50,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  socialBtnText: {
+    color: '#1F2937',
+    fontSize: 16,
+    fontWeight: '500',
+    marginLeft: 10,
   },
   headerContent: {
     paddingHorizontal: 30,
