@@ -65,22 +65,8 @@ export default function Home() {
     setDialogType('success')
     setDialogMessage(`欢迎回来，${username}！`)
   }
-  const handleGoogleLogin=async ()=>{
-
-  }
-
-
-  const handleClose = () => {
-    const isSuccess = dialogType === 'success'
-    setDialogType(null)
-
-    // 成功时，关闭弹窗后再跳转
-    if (isSuccess) {
-      router.push("/(tabs)/homePage")
-    }
-  }
-  // ========== GitHub 登录 ==========
-  const handleGithubLogin = async () => {
+  // ========== Google 登录 ==========
+  const handleGoogleLogin = async () => {
     // 校验：隐私协议
     if (!agreed) {
       setDialogType('error')
@@ -92,13 +78,13 @@ export default function Home() {
       setLoading(true)
 
       // 生成重定向地址（scheme 要和 app.json 里配置的一致）
-      const redirectTo = AuthSession.makeRedirectUri({
-        scheme: 'jnsbexpo',
-        path: 'auth/callback',
-      })
+      const redirectTo = Platform.OS === 'web'
+      ? 'http://localhost:8081/auth/callback'   // Web 端测试
+      : 'jnsbexpo://auth/callback';  
 
+      // 调用 Supabase 进行 Google OAuth 登录
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
+        provider: 'google',
         options: {
           redirectTo,
           skipBrowserRedirect: true,
@@ -107,7 +93,7 @@ export default function Home() {
 
       if (error) throw error
 
-      // 打开浏览器完成 GitHub 授权
+      // 打开浏览器完成 Google 授权
       const res = await WebBrowser.openAuthSessionAsync(
         data?.url ?? '',
         redirectTo
@@ -129,18 +115,105 @@ export default function Home() {
           // 登录成功 → 弹窗提示，关闭弹窗后 handleClose 会跳转
           setDialogType('success')
           setDialogMessage(
-            `欢迎回来，${sessionData.user?.user_metadata?.user_name || 'GitHub 用户'
-            }！`
+            `欢迎回来，${sessionData.user?.user_metadata?.full_name || sessionData.user?.email || 'Google 用户'}！`
           )
         }
       }
     } catch (e: any) {
       setDialogType('error')
-      setDialogMessage(e.message || 'GitHub 登录失败，请重试')
+      setDialogMessage(e.message || 'Google 登录失败，请重试')
     } finally {
       setLoading(false)
     }
   }
+
+
+  const handleClose = () => {
+    const isSuccess = dialogType === 'success'
+    setDialogType(null)
+
+    // 成功时，关闭弹窗后再跳转
+    if (isSuccess) {
+      router.push("/(tabs)/homePage")
+    }
+  }
+ // ========== GitHub 登录 ==========
+const handleGithubLogin = async () => {
+  if (!agreed) {
+    setDialogType('error');
+    setDialogMessage('请先阅读并同意《隐私协议》');
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    // GitHub 授权完成后回到 App
+    const redirectTo = AuthSession.makeRedirectUri({
+      scheme: 'jnsbexpo',
+      path: 'auth/callback',
+      preferLocalhost: false,
+    });
+
+    // 获取 GitHub OAuth 授权地址
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'github',
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true,
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data?.url) {
+      throw new Error('获取 GitHub 授权地址失败');
+    }
+
+    // 打开 GitHub 授权页面
+    const result = await WebBrowser.openAuthSessionAsync(
+      data.url,
+      redirectTo
+    );
+
+    // GitHub 授权成功
+    if (result.type !== 'success') {
+      return;
+    }
+
+    // 获取 GitHub 回调 URL
+    const callbackUrl = result.url;
+
+    // 从回调 URL 获取 code
+    const code = new URL(callbackUrl).searchParams.get('code');
+
+    if (!code) {
+      throw new Error('GitHub 授权成功，但未获取到授权 code');
+    }
+
+    // 使用 code 换取 Supabase Session
+    const { error: sessionError } =
+      await supabase.auth.exchangeCodeForSession(code);
+
+    if (sessionError) {
+      throw sessionError;
+    }
+
+    // Session 获取成功后，直接进入首页
+    router.replace('/(tabs)/homePage');
+  } catch (e: any) {
+    console.error('GitHub 登录失败:', e);
+
+    setDialogType('error');
+    setDialogMessage(
+      e?.message || 'GitHub 登录失败，请重试'
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={styles.safe}>
@@ -228,9 +301,6 @@ export default function Home() {
               <Text style={styles.primaryBtnText}>账号密码登录</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleLogin}>
-              <Text style={styles.primaryBtnText}>账号密码登录</Text>
-            </TouchableOpacity>
 
             {/* GitHub */}
             <TouchableOpacity
