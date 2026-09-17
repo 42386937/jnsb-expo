@@ -79,8 +79,8 @@ export default function Home() {
 
       // 生成重定向地址（scheme 要和 app.json 里配置的一致）
       const redirectTo = Platform.OS === 'web'
-      ? 'http://localhost:8081/auth/callback'   // Web 端测试
-      : 'jnsbexpo://auth/callback';  
+        ? 'http://localhost:8081/auth/callback'   // Web 端测试
+        : 'jnsbexpo://auth/callback';
 
       // 调用 Supabase 进行 Google OAuth 登录
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -126,8 +126,6 @@ export default function Home() {
       setLoading(false)
     }
   }
-
-
   const handleClose = () => {
     const isSuccess = dialogType === 'success'
     setDialogType(null)
@@ -137,8 +135,8 @@ export default function Home() {
       router.push("/(tabs)/homePage")
     }
   }
- // ========== GitHub 登录 ==========
-const handleGithubLogin = async () => {
+  // ========== GitHub 登录 ==========
+ const handleGithubLogin = async () => {
   if (!agreed) {
     setDialogType('error');
     setDialogMessage('请先阅读并同意《隐私协议》');
@@ -148,68 +146,57 @@ const handleGithubLogin = async () => {
   try {
     setLoading(true);
 
-    // GitHub 授权完成后回到 App
-    const redirectTo = AuthSession.makeRedirectUri({
-      scheme: 'jnsbexpo',
-      path: 'auth/callback',
-      preferLocalhost: false,
-    });
+    // Web 和 App 用不同的 redirectTo
+    const redirectTo =
+      Platform.OS === 'web'
+        ? window.location.origin + '/auth/callback'
+        : AuthSession.makeRedirectUri({
+            scheme: 'jnsbexpo',
+            path: 'auth/callback',
+            preferLocalhost: false,
+          });
 
-    // 获取 GitHub OAuth 授权地址
+    // Web 端：直接跳转；App 端：不跳转，手动用 WebBrowser 打开
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
         redirectTo,
-        skipBrowserRedirect: true,
+        skipBrowserRedirect: Platform.OS !== 'web',
       },
     });
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
-    if (!data?.url) {
-      throw new Error('获取 GitHub 授权地址失败');
-    }
+    // Web 端 signInWithOAuth 会自动跳转，代码走到这里一般不会执行
+    if (Platform.OS === 'web') return;
 
-    // 打开 GitHub 授权页面
-    const result = await WebBrowser.openAuthSessionAsync(
-      data.url,
-      redirectTo
-    );
+    // ===== 以下只有 App 端才会走 =====
+    if (!data?.url) throw new Error('获取 GitHub 授权地址失败');
 
-    // GitHub 授权成功
-    if (result.type !== 'success') {
-      return;
-    }
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+    if (result.type !== 'success') return;
 
-    // 获取 GitHub 回调 URL
-    const callbackUrl = result.url;
+    const code = new URL(result.url).searchParams.get('code');
+    if (!code) throw new Error('GitHub 授权成功，但未获取到授权 code');
 
-    // 从回调 URL 获取 code
-    const code = new URL(callbackUrl).searchParams.get('code');
-
-    if (!code) {
-      throw new Error('GitHub 授权成功，但未获取到授权 code');
-    }
-
-    // 使用 code 换取 Supabase Session
-    const { error: sessionError } =
+    const { data: sessionData, error: sessionError } =
       await supabase.auth.exchangeCodeForSession(code);
 
-    if (sessionError) {
-      throw sessionError;
-    }
+    if (sessionError) throw sessionError;
 
-    // Session 获取成功后，直接进入首页
-    router.replace('/(tabs)/homePage');
+    setDialogType('success');
+    setDialogMessage(
+      `欢迎回来，${
+        sessionData.user?.user_metadata?.full_name ||
+        sessionData.user?.user_metadata?.name ||
+        sessionData.user?.email ||
+        'GitHub 用户'
+      }！`
+    );
   } catch (e: any) {
     console.error('GitHub 登录失败:', e);
-
     setDialogType('error');
-    setDialogMessage(
-      e?.message || 'GitHub 登录失败，请重试'
-    );
+    setDialogMessage(e?.message || 'GitHub 登录失败，请重试');
   } finally {
     setLoading(false);
   }
@@ -230,7 +217,7 @@ const handleGithubLogin = async () => {
           <View style={styles.header}>
             <Image source={{ uri: BG_IMAGE }} style={styles.headerBg} resizeMode="cover" />
             <View style={styles.headerContent}>
-              <Text style={styles.appName}>绿色哨兵</Text>
+              <Text style={styles.appName}>公务车</Text>
               <Text style={styles.hello}>Hello</Text>
               <Text style={styles.welcome}>欢迎您登录本系统~</Text>
             </View>
