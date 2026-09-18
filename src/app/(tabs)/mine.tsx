@@ -1,64 +1,154 @@
 // app/(tabs)/homePage.tsx
+import backgroundBase64 from '@/constants/background';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
+  Dimensions,
   ImageBackground,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
-// 引入图标库
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+const { width } = Dimensions.get('window');
 
 export default function HomePage() {
-  // 背景图片链接（使用您之前提供的链接，或者替换为图2中显示的背景图）
-  const backgroundImageUrl = 'https://jnsb-1378304497.cos.ap-guangzhou.myqcloud.com/y64hsxLfCf0u3625856ec93ad0afadf1ba5e2bf6ddc4.jpg';
+  // ============================================================
+  // 在这里粘贴你的 Base64
+  // 注意：只粘贴 Base64 内容，不要带 data:image/jpeg;base64,
+  // ============================================================
+  const backgroundSource = {
+    uri: `data:image/jpeg;base64,${backgroundBase64}`,
+  };
+  // ============================================================
+
+
+  const handlePersonalInfo = () => {
+    console.log('个人信息');
+  };
+
+  const handleFeedback = () => {
+    console.log('意见反馈');
+  };
+
+  const handleNotice = () => {
+    console.log('通知公告');
+  };
+
+  const handleLogout = () => {
+    console.log('退出登录');
+  };
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
-        {/* 1. 顶部背景图区域 */}
-        <ImageBackground 
-          source={{ uri: backgroundImageUrl }} 
-          style={styles.headerBackground}
-          resizeMode="cover"
-        >
-          {/* 可以在这里放左上角的返回箭头（如果需要的话） */}
-        </ImageBackground>
-
-        {/* 2. 白色卡片区域 */}
-        <View style={styles.contentCard}>
-          
-          {/* 悬浮的设置按钮（设计图中右上角灰色齿轮） */}
-          <TouchableOpacity style={styles.floatingSettingsBtn} activeOpacity={0.8}>
-            <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          {/* 标题 */}
-          <Text style={styles.title}>绿色哨兵</Text>
-          
-          {/* 按钮组 */}
-          <View style={styles.buttonContainer}>
-            
-            {/* 一键上报按钮 */}
-            <TouchableOpacity style={styles.actionButton} activeOpacity={0.8} onPress={() => console.log('一键上报')}>
-              <Text style={styles.buttonText}>一键上报</Text>
-              {/* 使用 Ionicons 的 share-outline 或 arrow-redo 配合字体颜色 */}
-              <Ionicons name="arrow-redo-outline" size={24} color="#1E90FF" style={styles.iconStyle} />
-            </TouchableOpacity>
-
-            {/* 上报记录按钮 */}
-            <TouchableOpacity style={styles.actionButton} activeOpacity={0.8} onPress={() => console.log('上报记录')}>
-              <Text style={styles.buttonText}>上报记录</Text>
-              {/* 使用 FontAwesome5 的 cloud-upload-alt 配合颜色 */}
-              <FontAwesome5 name="cloud-upload-alt" size={22} color="#1E90FF" style={styles.iconStyle} />
-            </TouchableOpacity>
-
+      <ImageBackground
+        source={backgroundSource}
+        style={styles.background}
+        resizeMode="cover"
+      >
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.content}>
+            {/* 用户头像 */}
+            <View style={styles.avatarContainer}>
+              <Ionicons
+                name="person-circle"
+                size={100}
+                color="#D9D9D9"
+              />
+              <View style={styles.avatarInner}>
+                <Ionicons
+                  name="person"
+                  size={50}
+                  color="#FFFFFF"
+                />
+              </View>
+            </View>
+            {/* 用户名称 */}
+            <Text style={styles.username}>微信用户8255</Text>
+            {/* 功能菜单 */}
+            <View style={styles.menuCard}>
+              {/* 个人信息 */}
+              <TouchableOpacity
+                style={styles.menuItem}
+                activeOpacity={0.7}
+                onPress={handlePersonalInfo}
+              >
+                <View style={styles.menuLeft}>
+                  <View style={styles.iconBox}>
+                    <Ionicons
+                      name="settings-outline"
+                      size={25}
+                      color="#333333"
+                    />
+                  </View>
+                  <Text style={styles.menuText}>个人信息</Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward-outline"
+                  size={22}
+                  color="#999999"
+                />
+              </TouchableOpacity>
+              <View style={styles.divider} />
+              {/* 意见反馈 */}
+              <TouchableOpacity
+                style={styles.menuItem}
+                activeOpacity={0.7}
+                onPress={handleFeedback}
+              >
+                <View style={styles.menuLeft}>
+                  <View style={styles.iconBox}>
+                    <Ionicons
+                      name="document-text-outline"
+                      size={25}
+                      color="#333333"
+                    />
+                  </View>
+                  <Text style={styles.menuText}>意见反馈</Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward-outline"
+                  size={22}
+                  color="#999999"
+                />
+              </TouchableOpacity>
+              <View style={styles.divider} />
+              {/* 通知公告 */}
+              <TouchableOpacity
+                style={styles.menuItem}
+                activeOpacity={0.7}
+                onPress={handleNotice}
+              >
+                <View style={styles.menuLeft}>
+                  <View style={styles.iconBox}>
+                    <Ionicons
+                      name="chatbox-ellipses-outline"
+                      size={25}
+                      color="#333333"
+                    />
+                  </View>
+                  <Text style={styles.menuText}>通知公告</Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward-outline"
+                  size={22}
+                  color="#999999"
+                />
+              </TouchableOpacity>
+            </View>
+            {/* 退出登录 */}
+            <View style={styles.bottomContainer}>
+              <TouchableOpacity
+                style={styles.logoutButton}
+                activeOpacity={0.7}
+                onPress={handleLogout}
+              >
+                <Text style={styles.logoutText}>退出登录</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </SafeAreaView>
+      </ImageBackground>
     </View>
   );
 }
@@ -66,76 +156,97 @@ export default function HomePage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F5F6F8',
   },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  headerBackground: {
-    width: '100%',
-    height: 350, // 背景图高度，可根据实际图片调整
-    justifyContent: 'flex-start',
-  },
-  contentCard: {
+  background: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    marginTop: -30, // 向上覆盖背景图，形成圆角
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    minHeight: 400, // 保证卡片高度足够
-    // 阴影
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 5,
+    width: '100%',
+    height: '100%',
   },
-  floatingSettingsBtn: {
-    position: 'absolute',
-    top: -20, // 悬浮在卡片上方
-    right: 20,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#B0B0B0', // 灰色背景
+  safeArea: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 11,
+  },
+  avatarContainer: {
+    width: 100,
+    height: 100,
+    marginTop: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    // 阴影
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
+    position: 'relative',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  avatarInner: {
+    position: 'absolute',
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  username: {
+    marginTop: 8,
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: '700',
     color: '#000000',
-    marginBottom: 24,
-    letterSpacing: 1,
   },
-  buttonContainer: {
-    gap: 16,
+  menuCard: {
+    width: '100%',
+    marginTop: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    overflow: 'hidden',
   },
-  actionButton: {
+  menuItem: {
+    height: 61,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  menuLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconBox: {
+    width: 34,
+    height: 34,
     justifyContent: 'center',
-    backgroundColor: '#F2F8FF', // 极浅的蓝色背景
-    paddingVertical: 18,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#C9E4FF',
+    alignItems: 'center',
+    marginRight: 10,
   },
-  buttonText: {
-    fontSize: 18,
-    color: '#000000',
-    fontWeight: '500',
-    marginRight: 12, // 文字和图标间距
+  menuText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111111',
   },
-  iconStyle: {
-    // 可以根据需要微调图标大小和位置
-  }
+  divider: {
+    height: 1,
+    backgroundColor: '#EEEEEE',
+    marginLeft: 45,
+  },
+  bottomContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  logoutButton: {
+    width: '100%',
+    height: 45,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoutText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#087FF5',
+  },
 });
