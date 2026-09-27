@@ -107,3 +107,8 @@
   --color-accent: rgb(var(--accent));
   --color-accent-foreground: rgb(var(--accent-foreground));
 }
+input:focus,
+textarea:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
