@@ -1,5 +1,10 @@
 // app/(tabs)/homePage.tsx
 
+import { supabase } from '@/lib/supabase';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import type { ComponentProps } from 'react';
 import {
   ImageBackground,
   StyleSheet,
@@ -7,12 +12,109 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-// 引入图标库
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
-import Ionicons from '@expo/vector-icons/Ionicons';
+
+// profiles.role 的角色定义
+const ROLE = {
+  GROUP_ADMIN: 1, // 集团管理员
+  COMPANY_ADMIN: 2, // 企业管理员
+  GROUP_USER: 3, // 集团用户
+  NORMAL_USER: 4, // 普通用户
+} as const;
+
+type MenuItem = {
+  key: string;
+  title: string;
+  icon: ComponentProps<typeof Ionicons>['name'];
+  /** 能看到这个菜单的角色 */
+  roles: number[];
+  onPress: () => void;
+};
+
 export default function HomePage() {
+  const router = useRouter();
+  // profiles 里读出来的角色；读不到之前按最小权限渲染
+  const [role, setRole] = useState<number | null>(null);
+
   // 背景图片链接（使用您之前提供的链接，或者替换为图2中显示的背景图）
   const backgroundImageUrl = 'https://jnsb-1378304497.cos.ap-guangzhou.myqcloud.com/y64hsxLfCf0u3625856ec93ad0afadf1ba5e2bf6ddc4.jpg';
+
+  // ============================================================
+  // 进入页面：从 profiles 读当前用户的角色（每次聚焦都重新读）
+  // ============================================================
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+
+      (async () => {
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          const user = userData?.user;
+          if (!alive || !user) return;
+
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          if (!alive) return;
+          setRole(typeof profile?.role === 'number' ? profile.role : null);
+        } catch {
+          // 读不到角色就按普通用户处理，不能把管理菜单暴露出去
+        }
+      })();
+
+      return () => {
+        alive = false;
+      };
+    }, [])
+  );
+
+  // 角色没读到（或 profiles 里没有这条记录）时，按普通用户的最小权限渲染
+  const effectiveRole = role ?? ROLE.NORMAL_USER;
+
+  const allMenus: MenuItem[] = [
+    {
+      key: 'report',
+      title: '一键上报',
+      icon: 'arrow-redo-outline',
+      roles: [
+        ROLE.GROUP_ADMIN,
+        ROLE.COMPANY_ADMIN,
+        ROLE.GROUP_USER,
+        ROLE.NORMAL_USER,
+      ],
+      onPress: () => router.push('/(home)/report'),
+    },
+    {
+      key: 'records',
+      title: '上报记录',
+      icon: 'cloud-upload-outline',
+      roles: [ROLE.GROUP_ADMIN, ROLE.COMPANY_ADMIN, ROLE.GROUP_USER],
+      onPress: () => router.push('/(home)/records'),
+    },
+    {
+      key: 'events',
+      title: '事件管理',
+      icon: 'document-text-outline',
+      roles: [ROLE.GROUP_ADMIN, ROLE.COMPANY_ADMIN, ROLE.GROUP_USER],
+      onPress: () => console.log('事件管理'),
+    },
+    {
+      key: 'analytics',
+      title: '数据分析',
+      icon: 'bar-chart-outline',
+      roles: [
+        ROLE.GROUP_ADMIN,
+        ROLE.COMPANY_ADMIN,
+        ROLE.GROUP_USER,
+        ROLE.NORMAL_USER,
+      ],
+      onPress: () => console.log('数据分析'),
+    },
+  ];
+
+  const menus = allMenus.filter((menu) => menu.roles.includes(effectiveRole));
 
   return (
     <View style={styles.container}>
@@ -28,14 +130,17 @@ export default function HomePage() {
           </TouchableOpacity>
           <Text style={styles.title}>绿色哨兵</Text>
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.actionButton} activeOpacity={0.8} onPress={() => console.log('一键上报')}>
-              <Text style={styles.buttonText}>一键上报</Text>
-              <Ionicons name="arrow-redo-outline" size={24} color="#1E90FF" style={styles.iconStyle} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} activeOpacity={0.8} onPress={() => console.log('上报记录')}>
-              <Text style={styles.buttonText}>上报记录</Text>
-              <FontAwesome5 name="cloud-upload-alt" size={22} color="#1E90FF" style={styles.iconStyle} />
-            </TouchableOpacity>
+            {menus.map((menu) => (
+              <TouchableOpacity
+                key={menu.key}
+                style={styles.actionButton}
+                activeOpacity={0.8}
+                onPress={menu.onPress}
+              >
+                <Text style={styles.buttonText}>{menu.title}</Text>
+                <Ionicons name={menu.icon} size={24} color="#1E90FF" style={styles.iconStyle} />
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
     </View>
@@ -65,11 +170,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 40,
     minHeight: 400, // 保证卡片高度足够
-    // 阴影
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
+    // 阴影：RN 0.86 起 shadow* 已废弃，改用 boxShadow（长度必须带 px，否则会被忽略）
+    boxShadow: '0px -2px 5px rgba(0, 0, 0, 0.05)',
     elevation: 5,
   },
   floatingSettingsBtn: {
@@ -82,11 +184,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B0B0B0', // 灰色背景
     justifyContent: 'center',
     alignItems: 'center',
-    // 阴影
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
+    boxShadow: '0px 2px 3px rgba(0, 0, 0, 0.2)',
     elevation: 4,
   },
   title: {

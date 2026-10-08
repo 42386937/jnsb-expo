@@ -9,7 +9,7 @@ import {
 
 import { supabase } from '@/lib/supabase';
 import AgreeRow from './AgreeRow';
-import { styles } from './styles';
+import { styles } from '@/components/auth/styles';
 
 type Props = {
     onSuccess: (msg: string) => void;

@@ -6,6 +6,24 @@ const parseUTC = (timestamp: string): Date => {
   return new Date(timestamp);
 };
 
+/** 本地时间格式化成 2026-10-06 17:07:25 */
+export const formatDateTime = (date: Date = new Date()): string => {
+  const pad = (value: number) => `${value}`.padStart(2, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    ` ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
+};
+
+/** 本地日期格式化成 2026-10-06（也可直接传 supabase 返回的时间字符串） */
+export const formatDate = (value: Date | string = new Date()): string => {
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return "";
+
+  const pad = (n: number) => `${n}`.padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
 export const formatTimeAgo = (createdAt: string): string => {
   const now = new Date();
   const created = parseUTC(createdAt);

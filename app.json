@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "infoPlist": {
-        "UIViewControllerBasedStatusBarAppearance": true
+        "UIViewControllerBasedStatusBarAppearance": false
       }
     },
     "android": {
@@ -31,7 +31,15 @@
         }
       ],
       "expo-sqlite",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许「$(PRODUCT_NAME)」访问相册，用于更换头像",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

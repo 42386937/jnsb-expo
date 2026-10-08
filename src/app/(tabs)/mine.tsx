@@ -1,18 +1,24 @@
-// app/(tabs)/homePage.tsx
-import backgroundBase64 from '@/constants/background';
+// app/(tabs)/mine.tsx
 import { supabase } from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  ImageBackground,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+// 渐变背景用 SVG 画：纯色渐变色在 iOS / Android / H5 都能正常显示
+import Svg, {
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Rect,
+  Stop,
+} from 'react-native-svg';
 
 // Gluestack UI
 import {
@@ -40,12 +46,45 @@ export default function HomePage() {
     | null
   >(null);
 
-  const backgroundSource = {
-    uri: `data:image/jpeg;base64,${backgroundBase64}`,
-  };
+  // ===== 账号信息（头像 / 名称都从 supabase 取） =====
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [displayName, setDisplayName] = useState('');
+
+  // useFocusEffect：从「个人信息」改完头像/姓名返回时，这里会自动重新拉一次
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+
+      (async () => {
+        try {
+          const { data } = await supabase.auth.getUser();
+          const user = data?.user;
+          if (!alive || !user) return;
+
+          const meta = (user.user_metadata ?? {}) as Record<string, any>;
+          // avatar_url：Google / GitHub 授权登录后由 Supabase 写入；picture 是 Google 的另一个字段
+          setAvatarUrl(meta.avatar_url ?? meta.picture ?? '');
+          setDisplayName(
+            meta.full_name ??
+              meta.name ??
+              meta.username ??
+              meta.nickname ??
+              user.email?.split('@')[0] ??
+              ''
+          );
+        } catch {
+          // 静默失败：拿不到就保持默认头像 / 空名称
+        }
+      })();
+
+      return () => {
+        alive = false;
+      };
+    }, [])
+  );
 
   const handlePersonalInfo = () => {
-    console.log('个人信息');
+    router.push('/(mine)/personalInfo');
   };
 
   const handleFeedback = () => {
@@ -115,23 +154,46 @@ export default function HomePage() {
 
   return (
     <View style={styles.container}>
-      <ImageBackground
-        source={backgroundSource}
-        style={styles.background}
-        resizeMode="cover"
-      >
+      <View style={styles.background}>
+        {/* ===== 渐变背景（替代原来的 base64 背景图，H5 上也能显示） ===== */}
+        <View style={[StyleSheet.absoluteFill, styles.noTouch]}>
+          <Svg width="100%" height="100%">
+            <Defs>
+              <SvgLinearGradient id="mineBg" x1="0" y1="0" x2="0.35" y2="1">
+                <Stop offset="0" stopColor="#74C9EF" />
+                <Stop offset="0.15" stopColor="#9BD6F3" />
+                <Stop offset="0.3" stopColor="#CDEAF7" />
+                <Stop offset="0.45" stopColor="#E9F3F8" />
+                <Stop offset="0.65" stopColor="#F4F6F8" />
+                <Stop offset="1" stopColor="#F5F6F8" />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#mineBg)" />
+          </Svg>
+        </View>
+
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.content}>
-            {/* 用户头像 */}
+            {/* 用户头像：有头像用 supabase 里的，没有就用默认图标 */}
             <View style={styles.avatarContainer}>
-              <Ionicons name="person-circle" size={100} color="#D9D9D9" />
-              <View style={styles.avatarInner}>
-                <Ionicons name="person" size={50} color="#FFFFFF" />
-              </View>
+              {avatarUrl ? (
+                <Image
+                  source={{ uri: avatarUrl }}
+                  style={styles.avatarInner}
+                  resizeMode="cover"
+                />
+              ) : (
+                <>
+                  <Ionicons name="person-circle" size={100} color="#D9D9D9" />
+                  <View style={styles.avatarInner}>
+                    <Ionicons name="person" size={50} color="#FFFFFF" />
+                  </View>
+                </>
+              )}
             </View>
 
-            {/* 用户名称 */}
-            <Text style={styles.username}>微信用户8255</Text>
+            {/* 用户名称：同样来自 supabase */}
+            <Text style={styles.username}>{displayName}</Text>
 
             {/* 功能菜单 */}
             <View style={styles.menuCard}>
@@ -199,7 +261,7 @@ export default function HomePage() {
             </View>
           </View>
         </SafeAreaView>
-      </ImageBackground>
+      </View>
 
       {/* ================= 统一弹窗 ================= */}
       <AlertDialog isOpen={dialog !== null} onClose={handleDialogClose}>
@@ -263,6 +325,7 @@ export default function HomePage() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6F8' },
   background: { flex: 1, width: '100%', height: '100%' },
+  noTouch: { pointerEvents: 'none' },
   safeArea: { flex: 1 },
   content: { flex: 1, alignItems: 'center', paddingHorizontal: 11 },
   avatarContainer: {

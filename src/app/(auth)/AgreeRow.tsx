@@ -1,5 +1,5 @@
 import { Text, TouchableOpacity, View } from 'react-native';
-import { styles } from './styles';
+import { styles } from '@/components/auth/styles';
 
 type Props = {
   agreed: boolean;

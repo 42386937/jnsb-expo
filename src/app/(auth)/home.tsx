@@ -25,7 +25,7 @@ import { Text as GluestackText } from '@/components/ui/text';
 
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
-import { BG_IMAGE, styles } from './styles';
+import { BG_IMAGE, styles } from '@/components/auth/styles';
 
 export default function AuthEntry() {
   const router = useRouter();
