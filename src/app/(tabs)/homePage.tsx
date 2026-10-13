@@ -110,7 +110,7 @@ export default function HomePage() {
         ROLE.GROUP_USER,
         ROLE.NORMAL_USER,
       ],
-      onPress: () => console.log('数据分析'),
+      onPress: () => router.push('/(home)/analytics'),
     },
   ];
 
