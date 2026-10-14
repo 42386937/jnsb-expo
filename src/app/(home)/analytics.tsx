@@ -4,10 +4,11 @@ import EChart from '@/components/charts/EChart';
 import { supabase } from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -34,8 +35,11 @@ const DONE = '已整改';
 const NO_NEED = '无需整改';
 const ALL = '全部';
 
-const RANGE_OPTIONS = ['今年', '去年', '近12个月'];
 const TOP_OPTIONS = ['前5', '前10', '全部'];
+
+// 时间范围选择器：滚轮一格高度 / 可见行数
+const WHEEL_ITEM_HEIGHT = 42;
+const WHEEL_VISIBLE_ROWS = 3;
 
 // 环形图配色
 const PIE_COLORS = [
@@ -80,24 +84,34 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 const monthLabel = (date: Date) =>
   `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
 
-/** 时间范围：返回起止时间和形如 2026-01~2026-10 的展示文案 */
-const buildRange = (key: string) => {
-  const now = new Date();
-  const year = now.getFullYear();
-  let start = new Date(year, 0, 1);
-  let end = now;
+/** 年月（month 从 1 开始） */
+type MonthPoint = { year: number; month: number };
+type MonthRange = { start: MonthPoint; end: MonthPoint };
 
-  if (key === '去年') {
-    start = new Date(year - 1, 0, 1);
-    end = new Date(year - 1, 11, 31, 23, 59, 59);
-  } else if (key === '近12个月') {
-    start = new Date(year, now.getMonth() - 11, 1);
-  }
+/** 年月换算成序号，便于比较先后 */
+const pointValue = (point: MonthPoint) => point.year * 12 + (point.month - 1);
+/** 年月展示文案：2026-10 */
+const pointLabel = (point: MonthPoint) => `${point.year}-${pad2(point.month)}`;
+
+/** 默认时间范围：今年 1 月 ~ 当前月 */
+const defaultRange = (): MonthRange => {
+  const now = new Date();
+  return {
+    start: { year: now.getFullYear(), month: 1 },
+    end: { year: now.getFullYear(), month: now.getMonth() + 1 },
+  };
+};
+
+/** 时间范围：返回起止时间和形如 2026-01~2026-10 的展示文案 */
+const buildRange = (value: MonthRange) => {
+  const start = new Date(value.start.year, value.start.month - 1, 1, 0, 0, 0, 0);
+  // 结束月的最后一天 23:59:59.999（new Date(y, m, 0) 即第 m 月最后一天）
+  const end = new Date(value.end.year, value.end.month, 0, 23, 59, 59, 999);
 
   return {
     from: start.toISOString(),
     to: end.toISOString(),
-    label: `${monthLabel(start)}~${monthLabel(end)}`,
+    label: `${pointLabel(value.start)}~${pointLabel(value.end)}`,
   };
 };
 
@@ -342,8 +356,297 @@ function PickerSheet({
   );
 }
 
+/**
+ * 滚轮列（年 / 月）
+ * - 原生：snapToInterval 吸附，靠 momentum / 拖动结束事件取落点
+ * - Web（react-native-web）：既没有 snapToInterval 也没有 momentum 事件，
+ *   只有 onScroll，所以用「停止滚动 140ms」防抖取落点，再手动归位
+ * - 每一行还能直接点击选中，滚动不灵时也能选
+ */
+function Wheel({
+  items,
+  value,
+  onChange,
+}: {
+  items: { label: string; value: number }[];
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  const ref = useRef<ScrollView>(null);
+  // 用户是否已经手动滚动/点选过：没动过时才允许自动定位到选中项
+  const touchedRef = useRef(false);
+  // 正在程序化归位：这段动画产生的滚动事件不算用户的落点
+  const snappingRef = useRef(false);
+  const alignTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastOffset = useRef(0);
+  const index = Math.max(
+    0,
+    items.findIndex((item) => item.value === value)
+  );
+
+  useEffect(
+    () => () => {
+      if (alignTimer.current) clearTimeout(alignTimer.current);
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+    },
+    []
+  );
+
+  /** 滚到第 i 格；animated 时给动画留出时间，期间的滚动事件忽略 */
+  const alignTo = (i: number, animated: boolean) => {
+    snappingRef.current = true;
+    ref.current?.scrollTo({ y: i * WHEEL_ITEM_HEIGHT, animated });
+    if (alignTimer.current) clearTimeout(alignTimer.current);
+    alignTimer.current = setTimeout(
+      () => {
+        snappingRef.current = false;
+      },
+      animated ? 400 : 80
+    );
+  };
+
+  /** 取落点：归位到最近一格，并把选中的值回调出去 */
+  const commit = (offsetY: number) => {
+    if (snappingRef.current) return;
+
+    const next = Math.min(
+      items.length - 1,
+      Math.max(0, Math.round(offsetY / WHEEL_ITEM_HEIGHT))
+    );
+    const item = items[next];
+    if (!item) return;
+
+    if (Math.abs(offsetY - next * WHEEL_ITEM_HEIGHT) > 1) alignTo(next, true);
+    if (item.value !== value) onChange(item.value);
+  };
+
+  /** Web：滚动停下后再取落点（没有 momentum 事件可用） */
+  const handleScroll = (offsetY: number) => {
+    touchedRef.current = true;
+    lastOffset.current = offsetY;
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => commit(lastOffset.current), 140);
+  };
+
+  const selectItem = (item: { value: number }, i: number) => {
+    touchedRef.current = true;
+    alignTo(i, true);
+    if (item.value !== value) onChange(item.value);
+  };
+
+  return (
+    <ScrollView
+      ref={ref}
+      style={styles.wheel}
+      contentContainerStyle={styles.wheelContent}
+      showsVerticalScrollIndicator={false}
+      snapToInterval={WHEEL_ITEM_HEIGHT}
+      snapToAlignment="start"
+      decelerationRate="fast"
+      scrollEventThrottle={16}
+      onLayout={() => {
+        // 等首帧布局稳定后再定位，避免被初始位置覆盖
+        if (touchedRef.current) return;
+        setTimeout(() => {
+          if (!touchedRef.current) alignTo(index, false);
+        }, 0);
+      }}
+      onScroll={(e) => {
+        if (Platform.OS !== 'web') return;
+        handleScroll(e.nativeEvent.contentOffset.y);
+      }}
+      onMomentumScrollEnd={(e) => {
+        touchedRef.current = true;
+        commit(e.nativeEvent.contentOffset.y);
+      }}
+      onScrollEndDrag={(e) => {
+        touchedRef.current = true;
+        commit(e.nativeEvent.contentOffset.y);
+      }}
+    >
+      {items.map((item, i) => (
+        <Pressable
+          key={item.value}
+          style={styles.wheelItem}
+          onPress={() => selectItem(item, i)}
+        >
+          <Text
+            style={[styles.wheelText, i === index && styles.wheelTextActive]}
+            numberOfLines={1}
+          >
+            {item.label}
+          </Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
+
+/** 时间范围选择器：分别选开始 / 结束年月（点击头部切换），确认后生效 */
+function RangePickerSheet({
+  visible,
+  value,
+  onConfirm,
+  onClose,
+}: {
+  visible: boolean;
+  value: MonthRange;
+  onConfirm: (value: MonthRange) => void;
+  onClose: () => void;
+}) {
+  const [side, setSide] = useState<'start' | 'end'>('start');
+  const [draft, setDraft] = useState<MonthRange>(value);
+
+  // 每次打开都以当前生效的区间重新初始化，去掉上次未确认的改动
+  useEffect(() => {
+    if (visible) {
+      setDraft(value);
+      setSide('start');
+    }
+  }, [visible, value]);
+
+  const years = useMemo(() => {
+    const current = new Date().getFullYear();
+    const min = Math.min(current - 4, draft.start.year, draft.end.year);
+    return Array.from({ length: current - min + 1 }, (_, i) => ({
+      value: min + i,
+      label: `${min + i}年`,
+    }));
+  }, [draft.start.year, draft.end.year]);
+
+  const months = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, i) => ({
+        value: i + 1,
+        label: `${pad2(i + 1)}月`,
+      })),
+    []
+  );
+
+  const point = side === 'start' ? draft.start : draft.end;
+
+  /** 改当前端点，并保证开始月份不晚于结束月份 */
+  const updatePoint = (patch: Partial<MonthPoint>) => {
+    setDraft((prev) => {
+      const next: MonthRange = {
+        start: { ...prev.start },
+        end: { ...prev.end },
+      };
+      Object.assign(side === 'start' ? next.start : next.end, patch);
+
+      if (pointValue(next.start) > pointValue(next.end)) {
+        if (side === 'start') next.end = { ...next.start };
+        else next.start = { ...next.end };
+      }
+      return next;
+    });
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.modalMask} onPress={onClose}>
+        <Pressable style={styles.modalSheet} onPress={() => {}}>
+          {/* 头部：开始时间 / 至 / 结束时间，点击切换正在选择的一端 */}
+          <View style={styles.rangeHead}>
+            <TouchableOpacity
+              style={styles.rangeHeadCol}
+              activeOpacity={0.7}
+              onPress={() => setSide('start')}
+            >
+              <Text
+                style={[
+                  styles.rangeHeadLabel,
+                  side === 'start' && styles.rangeHeadLabelActive,
+                ]}
+              >
+                开始时间
+              </Text>
+              <Text
+                style={[
+                  styles.rangeHeadValue,
+                  side === 'start' && styles.rangeHeadValueActive,
+                ]}
+              >
+                {pointLabel(draft.start)}
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.rangeHeadSep}>至</Text>
+
+            <TouchableOpacity
+              style={styles.rangeHeadCol}
+              activeOpacity={0.7}
+              onPress={() => setSide('end')}
+            >
+              <Text
+                style={[
+                  styles.rangeHeadLabel,
+                  side === 'end' && styles.rangeHeadLabelActive,
+                ]}
+              >
+                结束时间
+              </Text>
+              <Text
+                style={[
+                  styles.rangeHeadValue,
+                  side === 'end' && styles.rangeHeadValueActive,
+                ]}
+              >
+                {pointLabel(draft.end)}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 滚轮：年 + 月（切换端点时重新挂载，直接定位到对应值） */}
+          <View style={styles.wheelRow}>
+            <Wheel
+              key={`year-${side}`}
+              items={years}
+              value={point.year}
+              onChange={(year) => updatePoint({ year })}
+            />
+            <Wheel
+              key={`month-${side}`}
+              items={months}
+              value={point.month}
+              onChange={(month) => updatePoint({ month })}
+            />
+          </View>
+
+          <View style={styles.rangeBtns}>
+            <TouchableOpacity
+              style={styles.rangeCancel}
+              activeOpacity={0.8}
+              onPress={onClose}
+            >
+              <Text style={styles.rangeCancelText}>取消</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.rangeConfirm}
+              activeOpacity={0.85}
+              onPress={() => {
+                onConfirm(draft);
+                onClose();
+              }}
+            >
+              <Text style={styles.rangeConfirmText}>确认</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 export default function AnalyticsScreen() {
-  const [rangeKey, setRangeKey] = useState('今年');
+  const [rangeValue, setRangeValue] = useState<MonthRange>(defaultRange);
   const [dimension, setDimension] = useState<'category' | 'company'>(
     'category'
   );
@@ -358,7 +661,7 @@ export default function AnalyticsScreen() {
   const [loading, setLoading] = useState(false);
   const [dialog, setDialog] = useState<DialogState>(null);
 
-  const range = useMemo(() => buildRange(rangeKey), [rangeKey]);
+  const range = useMemo(() => buildRange(rangeValue), [rangeValue]);
 
   // ============================================================
   // 拉数据：只取统计需要的列
@@ -599,14 +902,6 @@ export default function AnalyticsScreen() {
   // 渲染
   // ============================================================
   const pickerConfig = (() => {
-    if (picker === 'range') {
-      return {
-        title: '选择时间范围',
-        options: RANGE_OPTIONS,
-        value: rangeKey,
-        onSelect: (value: string) => setRangeKey(value),
-      };
-    }
     if (picker === 'top') {
       return {
         title: '整改时效显示数量',
@@ -721,7 +1016,9 @@ export default function AnalyticsScreen() {
                   height={Math.max(120, agingList.length * 34 + 40)}
                 />
               ) : (
-                <Text style={styles.emptyText}>暂无整改时效数据</Text>
+                <Text style={styles.emptyText}>
+                  暂无整改时效数据（需要有「已整改」且填写了整改时间的记录）
+                </Text>
               )}
             </View>
 
@@ -806,6 +1103,14 @@ export default function AnalyticsScreen() {
           </ScrollView>
         )}
       </SafeAreaView>
+
+      {/* ================= 时间范围选择器 ================= */}
+      <RangePickerSheet
+        visible={picker === 'range'}
+        value={rangeValue}
+        onConfirm={(next) => setRangeValue(next)}
+        onClose={() => setPicker(null)}
+      />
 
       {/* ================= 选择器 ================= */}
       <PickerSheet
@@ -1010,4 +1315,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCancelText: { fontSize: 16, color: '#666666', fontWeight: '500' },
+
+  // 时间范围选择器
+  rangeHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 4,
+  },
+  rangeHeadCol: { flex: 1, alignItems: 'center' },
+  rangeHeadLabel: { fontSize: 14, color: '#9AA0A6' },
+  rangeHeadLabelActive: { color: '#1E88FF', fontWeight: '600' },
+  rangeHeadValue: {
+    marginTop: 4,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#9AA0A6',
+    paddingBottom: 4,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  rangeHeadValueActive: { color: '#1E88FF', borderBottomColor: '#1E88FF' },
+  rangeHeadSep: { fontSize: 15, color: '#333333', paddingHorizontal: 8 },
+
+  wheelRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  wheel: {
+    flex: 1,
+    height: WHEEL_ITEM_HEIGHT * WHEEL_VISIBLE_ROWS,
+  },
+  wheelContent: {
+    paddingVertical: (WHEEL_ITEM_HEIGHT * (WHEEL_VISIBLE_ROWS - 1)) / 2,
+  },
+  wheelItem: {
+    height: WHEEL_ITEM_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wheelText: { fontSize: 16, color: '#C0C4CC' },
+  wheelTextActive: { fontSize: 17, fontWeight: '700', color: '#1E88FF' },
+
+  rangeBtns: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  rangeCancel: {
+    flex: 1,
+    height: 47,
+    borderRadius: 24,
+    backgroundColor: '#F5F6F8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rangeCancelText: { fontSize: 16, color: '#666666', fontWeight: '500' },
+  rangeConfirm: {
+    flex: 1,
+    height: 47,
+    borderRadius: 24,
+    backgroundColor: '#1E88FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rangeConfirmText: { fontSize: 16, color: '#FFFFFF', fontWeight: '600' },
 });
