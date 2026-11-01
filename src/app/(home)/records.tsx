@@ -1,5 +1,7 @@
 // src/app/(home)/records.tsx
 // 「上报记录」列表页
+import DateWheelPicker from '@/components/DateWheelPicker';
+import HeaderBackButton from '@/components/HeaderBackButton';
 import { formatDate, formatDateTime } from '@/lib/date-helper';
 import { supabase } from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -10,7 +12,6 @@ import {
   FlatList,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -82,12 +83,12 @@ const isOverdue = (item: ReportRecord) => {
 export default function RecordsScreen() {
   const router = useRouter();
 
-  // 默认查询范围：今年 1 月 1 日 ~ 今天
-  const [fromDate, setFromDate] = useState(
-    formatDate(new Date(new Date().getFullYear(), 0, 1))
-  );
+  // 默认查询范围：开始和结束都是今天（都是本地日期，YYYY-MM-DD）
+  const [fromDate, setFromDate] = useState(formatDate());
   const [toDate, setToDate] = useState(formatDate());
   const [statusFilter, setStatusFilter] = useState('全部');
+  // 当前打开的是哪个日期的滚轮：from / to
+  const [datePicker, setDatePicker] = useState<null | 'from' | 'to'>(null);
 
   const [records, setRecords] = useState<ReportRecord[]>([]);
   const [companyMap, setCompanyMap] = useState<Record<number, string>>({});
@@ -268,6 +269,8 @@ export default function RecordsScreen() {
           title: '上报记录',
           // 设计图里标题比全局默认大一号
           headerTitleStyle: { fontSize: 18, fontWeight: 'bold' },
+          // 默认返回按钮只在有历史时出现（H5 刷新会消失），这里用自绘的
+          headerLeft: () => <HeaderBackButton />,
         }}
       />
 
@@ -275,23 +278,24 @@ export default function RecordsScreen() {
         {/* ================= 查询条件（固定在顶部） ================= */}
         <View style={styles.filterBar}>
           <View style={styles.dateRow}>
-            <TextInput
-              style={styles.dateInput}
-              value={fromDate}
-              onChangeText={setFromDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#B9BDC4"
-              autoCapitalize="none"
-            />
+            {/* 点开滚轮选择器，不再是键盘输入 */}
+            <TouchableOpacity
+              style={styles.dateField}
+              activeOpacity={0.7}
+              onPress={() => setDatePicker('from')}
+            >
+              <Text style={styles.dateText}>{fromDate}</Text>
+            </TouchableOpacity>
+
             <Text style={styles.dateDash}>—</Text>
-            <TextInput
-              style={styles.dateInput}
-              value={toDate}
-              onChangeText={setToDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#B9BDC4"
-              autoCapitalize="none"
-            />
+
+            <TouchableOpacity
+              style={styles.dateField}
+              activeOpacity={0.7}
+              onPress={() => setDatePicker('to')}
+            >
+              <Text style={styles.dateText}>{toDate}</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.searchBtn}
@@ -373,6 +377,30 @@ export default function RecordsScreen() {
         />
       </SafeAreaView>
 
+      {/* ================= 日期滚轮 ================= */}
+      <DateWheelPicker
+        visible={datePicker !== null}
+        value={datePicker === 'to' ? toDate : fromDate}
+        onCancel={() => setDatePicker(null)}
+        onConfirm={(next) => {
+          // 日期都是 YYYY-MM-DD 且补零，直接按字符串比较就等于按时间比较
+          if (datePicker === 'from' && next > toDate) {
+            setDatePicker(null);
+            setDialog({ message: '开始日期不能晚于结束日期' });
+            return;
+          }
+          if (datePicker === 'to' && next < fromDate) {
+            setDatePicker(null);
+            setDialog({ message: '结束日期不能早于开始日期' });
+            return;
+          }
+
+          if (datePicker === 'to') setToDate(next);
+          else setFromDate(next);
+          setDatePicker(null);
+        }}
+      />
+
       {/* ================= 提示弹窗 ================= */}
       <AlertDialog isOpen={dialog !== null} onClose={() => setDialog(null)}>
         <AlertDialogBackdrop />
@@ -411,7 +439,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   dateRow: { flexDirection: 'row', alignItems: 'center' },
-  dateInput: {
+  dateField: {
     flex: 1,
     // H5 上 <input> 有固有宽度，CSS flex 默认 min-width:auto 不肯收缩，
     // 不写这个两个日期框会占满整行、把「查询」按钮挤出屏幕
@@ -421,12 +449,11 @@ const styles = StyleSheet.create({
     borderColor: '#D9DDE3',
     borderRadius: 6,
     paddingHorizontal: 8,
-    paddingVertical: 0,
-    fontSize: 14,
-    color: '#333333',
     backgroundColor: '#FFFFFF',
-    textAlign: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+  dateText: { fontSize: 14, color: '#333333' },
   dateDash: { marginHorizontal: 10, fontSize: 16, color: '#666666' },
   searchBtn: {
     width: 92,

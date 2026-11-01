@@ -1,5 +1,6 @@
 // src/app/(home)/recordDetail.tsx
 // 「问题详情」页：从上报记录点「详情」进来，三个分组可折叠
+import HeaderBackButton from '@/components/HeaderBackButton';
 import { formatDate, formatDateTime } from '@/lib/date-helper';
 import { supabase } from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -280,6 +281,7 @@ export default function RecordDetailScreen() {
           headerShown: true,
           title: '问题详情',
           headerTitleStyle: { fontSize: 18, fontWeight: 'bold' },
+          headerLeft: () => <HeaderBackButton />,
         }}
       />
 

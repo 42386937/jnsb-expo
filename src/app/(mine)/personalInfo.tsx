@@ -1,5 +1,6 @@
 // src/app/(mine)/personalInfo.tsx
 // 「我的 → 个人信息」编辑页
+import HeaderBackButton from '@/components/HeaderBackButton';
 import { supabase } from '@/lib/supabase';
 import { uploadAvatar } from '@/lib/supabase/storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -219,6 +220,7 @@ export default function PersonalInfoScreen() {
         options={{
           headerShown: true,
           title: '个人信息',
+          headerLeft: () => <HeaderBackButton />,
         }}
       />
 

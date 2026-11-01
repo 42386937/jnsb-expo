@@ -1,6 +1,7 @@
 // src/app/(home)/analytics.tsx
 // 「数据分析」页：上报情况（环形图）/ 上报趋势（堆叠柱）/ 整改时效（横向柱）/ 上报明细 / 奖励情况
 import EChart from '@/components/charts/EChart';
+import HeaderBackButton from '@/components/HeaderBackButton';
 import { supabase } from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack } from 'expo-router';
@@ -936,6 +937,7 @@ export default function AnalyticsScreen() {
           headerShown: true,
           title: '数据分析',
           headerTitleStyle: { fontSize: 18, fontWeight: 'bold' },
+          headerLeft: () => <HeaderBackButton />,
         }}
       />
 

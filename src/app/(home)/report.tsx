@@ -1,6 +1,8 @@
 // src/app/(home)/report.tsx
 // 「一键上报」表单页
-import { formatDateTime } from '@/lib/date-helper';
+import HeaderBackButton from '@/components/HeaderBackButton';
+import DateWheelPicker from '@/components/DateWheelPicker';
+import { formatDate, formatDateTime } from '@/lib/date-helper';
 import { supabase } from '@/lib/supabase';
 import type { ImageSource } from '@/lib/supabase/storage';
 import { uploadReportImage } from '@/lib/supabase/storage';
@@ -63,6 +65,11 @@ export default function ReportScreen() {
   const [subCompany, setSubCompany] = useState(''); // 子公司名称
   const [category, setCategory] = useState(''); // 问题分类
   const [location, setLocation] = useState(''); // 问题位置
+  // 截止时间（整改限时）：默认今天 + 7 天，点开滚轮可改
+  const [deadline, setDeadline] = useState(
+    formatDate(new Date(Date.now() + 7 * 86400000))
+  );
+  const [deadlineVisible, setDeadlineVisible] = useState(false);
   const [description, setDescription] = useState(''); // 问题描述
   const [images, setImages] = useState<ImageSource[]>([]); // 问题图片（本地，最多 MAX_IMAGES 张）
   const [categoryVisible, setCategoryVisible] = useState(false);
@@ -182,6 +189,11 @@ export default function ReportScreen() {
       setDialog({ kind: 'error', message: '请填写问题描述' });
       return;
     }
+    // 截止时间不能早于今天（两个都是 YYYY-MM-DD 补零，字符串比较即可）
+    if (deadline < formatDate()) {
+      setDialog({ kind: 'error', message: '截止时间不能早于今天' });
+      return;
+    }
     if (!images.length) {
       setDialog({ kind: 'error', message: '请上传问题图片' });
       return;
@@ -210,6 +222,8 @@ export default function ReportScreen() {
         location: location.trim(),
         description: description.trim() || null,
         image_urls: imageUrls,
+        // 截止时间存当天 23:59:59，这样「整改限时: 2026-11-09」到 9 号结束前都算未逾期
+        rectification_deadline: new Date(`${deadline}T23:59:59`).toISOString(),
       });
       if (error) throw error;
 
@@ -237,6 +251,7 @@ export default function ReportScreen() {
         options={{
           headerShown: true,
           title: '一键上报',
+          headerLeft: () => <HeaderBackButton />,
         }}
       />
 
@@ -337,6 +352,21 @@ export default function ReportScreen() {
                   placeholder=""
                   placeholderTextColor="#B9BDC4"
                 />
+              </View>
+
+              {/* 截止时间（点开滚轮选择，不是键盘输入） */}
+              <View style={styles.row}>
+                <Text style={styles.label}>截止时间</Text>
+                <TouchableOpacity
+                  style={[styles.input, styles.select]}
+                  activeOpacity={0.7}
+                  onPress={() => setDeadlineVisible(true)}
+                >
+                  <Text style={styles.selectText} numberOfLines={1}>
+                    {deadline}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={18} color="#9AA0A6" />
+                </TouchableOpacity>
               </View>
 
               {/* 问题描述 */}
@@ -491,6 +521,17 @@ export default function ReportScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ================= 截止时间滚轮 ================= */}
+      <DateWheelPicker
+        visible={deadlineVisible}
+        value={deadline}
+        onCancel={() => setDeadlineVisible(false)}
+        onConfirm={(next) => {
+          setDeadline(next);
+          setDeadlineVisible(false);
+        }}
+      />
 
       {/* ================= 统一提示弹窗 ================= */}
       <AlertDialog isOpen={dialog !== null} onClose={handleDialogClose}>

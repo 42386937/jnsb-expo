@@ -98,7 +98,7 @@ export default function HomePage() {
       title: '事件管理',
       icon: 'document-text-outline',
       roles: [ROLE.GROUP_ADMIN, ROLE.COMPANY_ADMIN, ROLE.GROUP_USER],
-      onPress: () => console.log('事件管理'),
+      onPress: () => router.push('/(home)/events'),
     },
     {
       key: 'analytics',
