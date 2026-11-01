@@ -63,12 +63,14 @@ type ReportRecord = {
 type DialogState = { message: string } | null;
 
 // 本地日期串 → 当天 00:00:00 / 23:59:59.999 的 ISO（带时区，避免查询范围偏一天）
-const toDayStartISO = (day: string) => {
+const toDayStartISO = (day?: string | null) => {
+  if (typeof day !== 'string' || !day.trim()) return null;
   const date = new Date(`${day.trim()}T00:00:00`);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
-const toDayEndISO = (day: string) => {
+const toDayEndISO = (day?: string | null) => {
+  if (typeof day !== 'string' || !day.trim()) return null;
   const date = new Date(`${day.trim()}T23:59:59.999`);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
@@ -152,7 +154,7 @@ export default function RecordsScreen() {
     }
   };
 
-  // 首次进入按默认条件加载一次
+  // 只在首次进入时按默认条件加载一次（不随页面返回刷新）
   useEffect(() => {
     void loadRecords({ from: fromDate, to: toDate, status: statusFilter });
     // eslint-disable-next-line react-hooks/exhaustive-deps

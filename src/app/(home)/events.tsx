@@ -5,8 +5,8 @@ import HeaderBackButton from '@/components/HeaderBackButton';
 import { formatDate, formatDateTime } from '@/lib/date-helper';
 import { supabase } from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -64,12 +64,14 @@ type EventRecord = {
 type DialogState = { message: string } | null;
 
 // 本地日期串 → 当天 00:00:00 / 23:59:59.999 的 ISO
-const toDayStartISO = (day: string) => {
+const toDayStartISO = (day?: string | null) => {
+  if (typeof day !== 'string' || !day.trim()) return null;
   const date = new Date(`${day.trim()}T00:00:00`);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
-const toDayEndISO = (day: string) => {
+const toDayEndISO = (day?: string | null) => {
+  if (typeof day !== 'string' || !day.trim()) return null;
   const date = new Date(`${day.trim()}T23:59:59.999`);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
@@ -151,11 +153,19 @@ export default function EventsScreen() {
     }
   };
 
-  // 首次进入按默认条件加载
+  // 当前筛选条件放 ref 里，供 useFocusEffect 读取（避免闭包捕获到首次的值）
+  // 注意 key 必须和 loadRecords 的参数名一致：from / to / status
+  const filtersRef = useRef({ from: fromDate, to: toDate, status: statusFilter });
   useEffect(() => {
-    void loadRecords({ from: fromDate, to: toDate, status: statusFilter });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    filtersRef.current = { from: fromDate, to: toDate, status: statusFilter };
+  }, [fromDate, toDate, statusFilter]);
+
+  // 每次页面获得焦点都重新查：从整改页提交后返回，列表状态才会更新
+  useFocusEffect(
+    useCallback(() => {
+      void loadRecords(filtersRef.current);
+    }, [])
+  );
 
   const handleSearch = () => {
     void loadRecords({ from: fromDate, to: toDate, status: statusFilter });
@@ -171,8 +181,7 @@ export default function EventsScreen() {
   };
 
   const handleManage = (item: EventRecord) => {
-    // TODO: 整改处理页做好后改成 router.push('/(home)/rectify', { id: item.id })
-    console.log('[事件管理-管理]', item.id);
+    router.push({ pathname: '/(home)/rectify', params: { id: item.id } });
   };
 
   const renderRecord = (item: EventRecord) => {
